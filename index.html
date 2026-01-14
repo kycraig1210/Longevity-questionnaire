@@ -563,6 +563,9 @@
         <!-- Form Content -->
         <div class="form-content" id="formContent">
             <form id="longevityForm" action="https://formspree.io/f/mvzzgzeo" method="POST">
+                <!-- Hidden fields for better email formatting -->
+                <input type="hidden" name="_subject" value="New Client Questionnaire Submission">
+                <input type="hidden" name="_template" value="table">
                 
                 <!-- SECTION 1: Basic Information -->
                 <div class="section">
@@ -1894,12 +1897,214 @@
 
         // ===== FORM SUBMISSION =====
         document.getElementById('longevityForm').addEventListener('submit', function(e) {
-            // Let form submit naturally to Formspree
+            e.preventDefault();
+            
+            // Collect form data
+            const formData = new FormData(this);
+            const data = {};
+            
+            for (let [key, value] of formData.entries()) {
+                if (value) {
+                    if (data[key]) {
+                        if (Array.isArray(data[key])) {
+                            data[key].push(value);
+                        } else {
+                            data[key] = [data[key], value];
+                        }
+                    } else {
+                        data[key] = value;
+                    }
+                }
+            }
+            
+            // Create formatted summary
+            let summary = '=== CLIENT QUESTIONNAIRE ===\n\n';
+            
+            // Basic Info
+            if (data.fullName || data.dob || data.birthGender) {
+                summary += '--- BASIC INFORMATION ---\n';
+                if (data.fullName) summary += `Name: ${data.fullName}\n`;
+                if (data.dob) summary += `Date of Birth: ${data.dob}\n`;
+                if (data.birthGender) summary += `Sex: ${data.birthGender}\n`;
+                if (data.email) summary += `Email: ${data.email}\n`;
+                if (data.phone) summary += `Phone: ${data.phone}\n`;
+                if (data.occupation) summary += `Occupation: ${data.occupation}\n`;
+                if (data.currentWeight) summary += `Current Weight: ${data.currentWeight}\n`;
+                if (data.idealWeight) summary += `Ideal Weight: ${data.idealWeight}\n`;
+                if (data.referralSource) summary += `Referral Source: ${data.referralSource}\n`;
+                summary += '\n';
+            }
+            
+            // Goals
+            if (data.goals) {
+                summary += '--- LONGEVITY GOALS ---\n';
+                const goals = Array.isArray(data.goals) ? data.goals : [data.goals];
+                goals.forEach(goal => summary += `• ${goal}\n`);
+                if (data.goalsAdditional) summary += `\nAdditional Context:\n${data.goalsAdditional}\n`;
+                summary += '\n';
+            }
+            
+            // Medical History
+            if (data.medicalHistory) {
+                summary += '--- MEDICAL CONDITIONS ---\n';
+                const conditions = Array.isArray(data.medicalHistory) ? data.medicalHistory : [data.medicalHistory];
+                conditions.forEach(condition => summary += `• ${condition}\n`);
+                
+                // Add specific details
+                if (data['cancer-details']) summary += `  Cancer details: ${data['cancer-details']}\n`;
+                if (data['autoimmune-details']) summary += `  Autoimmune details: ${data['autoimmune-details']}\n`;
+                if (data['tbi-details']) summary += `  TBI details: ${data['tbi-details']}\n`;
+                if (data['thyroid-details']) summary += `  Thyroid details: ${data['thyroid-details']}\n`;
+                summary += '\n';
+            }
+            
+            // Smoking & Alcohol
+            if (data.smokingHistory || data.alcoholFrequency) {
+                summary += '--- SUBSTANCE USE ---\n';
+                if (data.smokingHistory) {
+                    summary += `Smoking: ${data.smokingHistory}\n`;
+                    if (data.smokingYears) summary += `  Years: ${data.smokingYears}\n`;
+                    if (data.cigarettesPerDay) summary += `  Cigarettes/day: ${data.cigarettesPerDay}\n`;
+                }
+                if (data.alcoholFrequency) summary += `Alcohol: ${data.alcoholFrequency}\n`;
+                summary += '\n';
+            }
+            
+            // Recent Tests
+            if (data.lastPhysical || data.dxaScan || data.cimtScan) {
+                summary += '--- RECENT MEDICAL TESTS ---\n';
+                if (data.lastPhysical) summary += `Last Physical: ${data.lastPhysical}\n`;
+                if (data.physicalFindings) summary += `  Findings: ${data.physicalFindings}\n`;
+                if (data.dxaScan) summary += `DXA Scan: ${data.dxaScan}\n`;
+                if (data.cimtScan) summary += `CIMT Scan: ${data.cimtScan}\n`;
+                summary += '\n';
+            }
+            
+            // Medications
+            const medNames = formData.getAll('medicationName[]').filter(v => v);
+            if (medNames.length > 0) {
+                summary += '--- MEDICATIONS ---\n';
+                const medDoses = formData.getAll('medicationDose[]');
+                const medFreqs = formData.getAll('medicationFrequency[]');
+                medNames.forEach((name, i) => {
+                    summary += `• ${name}`;
+                    if (medDoses[i]) summary += ` - ${medDoses[i]}`;
+                    if (medFreqs[i]) summary += ` - ${medFreqs[i]}`;
+                    summary += '\n';
+                });
+                summary += '\n';
+            }
+            
+            // Supplements
+            const suppNames = formData.getAll('supplementName[]').filter(v => v);
+            if (suppNames.length > 0) {
+                summary += '--- SUPPLEMENTS ---\n';
+                const suppDoses = formData.getAll('supplementDose[]');
+                const suppFreqs = formData.getAll('supplementFrequency[]');
+                suppNames.forEach((name, i) => {
+                    summary += `• ${name}`;
+                    if (suppDoses[i]) summary += ` - ${suppDoses[i]}`;
+                    if (suppFreqs[i]) summary += ` - ${suppFreqs[i]}`;
+                    summary += '\n';
+                });
+                summary += '\n';
+            }
+            
+            // Key Symptoms (only if rated > 2)
+            summary += '--- SYMPTOM SEVERITY (0-5 scale) ---\n';
+            const symptoms = [
+                ['stamina', 'Decreased stamina'],
+                ['fatigue', 'Severe fatigue'],
+                ['memory', 'Memory issues'],
+                ['concentration', 'Concentration issues'],
+                ['sleepdifficulty', 'Sleep difficulty'],
+                ['weightgain', 'Weight gain'],
+                ['hairloss', 'Hair loss'],
+                ['dryskin', 'Dry skin/hair'],
+                ['palpitations', 'Heart palpitations']
+            ];
+            
+            let hasSymptoms = false;
+            symptoms.forEach(([key, label]) => {
+                if (data[key] && parseInt(data[key]) > 2) {
+                    summary += `${label}: ${data[key]}/5\n`;
+                    hasSymptoms = true;
+                }
+            });
+            if (!hasSymptoms) summary += 'No significant symptoms reported\n';
+            summary += '\n';
+            
+            // Stress & Mental Health
+            if (data.stresslevel || data.social) {
+                summary += '--- STRESS & MENTAL HEALTH ---\n';
+                if (data.stresslevel) summary += `Stress Level: ${data.stresslevel}/5\n`;
+                if (data.stressmanagement) summary += `Stress Management: ${data.stressmanagement}/5\n`;
+                if (data.social) summary += `Social Connectedness: ${data.social}/5\n`;
+                if (data.stressManagementActivities) summary += `Stress Management:\n${data.stressManagementActivities}\n`;
+                if (data.supportSystem) summary += `Support System: ${data.supportSystem}\n`;
+                summary += '\n';
+            }
+            
+            // Sleep
+            if (data.sleepHours || data.sleepPattern) {
+                summary += '--- SLEEP PATTERNS ---\n';
+                if (data.sleepHours) summary += `Hours per night: ${data.sleepHours}\n`;
+                if (data.sleepPattern) summary += `Pattern: ${data.sleepPattern}\n`;
+                if (data.naps) summary += `Naps: ${data.naps}\n`;
+                if (data.stimulants) summary += `Stimulants: ${data.stimulants}\n`;
+                summary += '\n';
+            }
+            
+            // Nutrition
+            if (data.mealsHome || data.fruitsVeggies) {
+                summary += '--- NUTRITION HABITS ---\n';
+                if (data.mealsHome) summary += `Meals at home: ${data.mealsHome}%\n`;
+                if (data.mealsOut) summary += `Meals out: ${data.mealsOut}%\n`;
+                if (data.fruitsVeggies) summary += `Fruits/veggies: ${data.fruitsVeggies}\n`;
+                if (data.fluidIntake) summary += `Fluid intake: ${data.fluidIntake} glasses/day\n`;
+                if (data.dietaryPreferences) summary += `Dietary preferences: ${data.dietaryPreferences}\n`;
+                if (data.foodTracking === 'yes' && data.trackingApp) summary += `Food tracking: ${data.trackingApp}\n`;
+                summary += '\n';
+            }
+            
+            // Physical Activity
+            const activities = ['meditation', 'walking', 'running', 'biking', 'yoga', 'swimming', 'weights'];
+            let hasActivity = false;
+            summary += '--- WEEKLY ACTIVITY (minutes) ---\n';
+            activities.forEach(activity => {
+                if (data[activity] && parseInt(data[activity]) > 0) {
+                    summary += `${activity.charAt(0).toUpperCase() + activity.slice(1)}: ${data[activity]} min\n`;
+                    hasActivity = true;
+                }
+            });
+            if (data.otherActivity) summary += `Other: ${data.otherActivity}\n`;
+            if (!hasActivity && !data.otherActivity) summary += 'No regular activity reported\n';
+            summary += '\n';
+            
+            // Fitness Equipment
+            if (data.wearable || data.gymAccess) {
+                summary += '--- FITNESS RESOURCES ---\n';
+                if (data.wearable === 'yes' && data.wearableDevice) summary += `Wearable: ${data.wearableDevice}\n`;
+                if (data.gymAccess) summary += `Gym/Equipment: ${data.gymAccess}\n`;
+                if (data.physicalLimitations) summary += `Limitations: ${data.physicalLimitations}\n`;
+                if (data.barriers) summary += `Barriers: ${data.barriers}\n`;
+                summary += '\n';
+            }
+            
+            // Add formatted summary
+            const summaryInput = document.createElement('input');
+            summaryInput.type = 'hidden';
+            summaryInput.name = '📋_FORMATTED_SUMMARY';
+            summaryInput.value = summary;
+            this.appendChild(summaryInput);
+            
             // Show loading state
             const submitBtn = this.querySelector('.btn-primary');
-            const originalText = submitBtn.textContent;
             submitBtn.textContent = 'Submitting...';
             submitBtn.disabled = true;
+            
+            // Submit form
+            this.submit();
         });
 
         // ===== INITIALIZE =====
