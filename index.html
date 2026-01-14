@@ -562,7 +562,7 @@
 
         <!-- Form Content -->
         <div class="form-content" id="formContent">
-            <form id="longevityForm">
+            <form id="longevityForm" action="https://formspree.io/f/mvzzgzeo" method="POST">
                 
                 <!-- SECTION 1: Basic Information -->
                 <div class="section">
@@ -1894,31 +1894,12 @@
 
         // ===== FORM SUBMISSION =====
         document.getElementById('longevityForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Collect form data
-            const formData = new FormData(this);
-            const data = {};
-            
-            for (let [key, value] of formData.entries()) {
-                if (data[key]) {
-                    if (Array.isArray(data[key])) {
-                        data[key].push(value);
-                    } else {
-                        data[key] = [data[key], value];
-                    }
-                } else {
-                    data[key] = value;
-                }
-            }
-
-            // In production, send data to backend
-            console.log('Form data:', data);
-
-            // Show confirmation
-            document.getElementById('formContent').style.display = 'none';
-            document.getElementById('confirmationScreen').classList.add('active');
-            window.scrollTo(0, 0);
+            // Let form submit naturally to Formspree
+            // Show loading state
+            const submitBtn = this.querySelector('.btn-primary');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Submitting...';
+            submitBtn.disabled = true;
         });
 
         // ===== INITIALIZE =====
